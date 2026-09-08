@@ -3,10 +3,12 @@ Figure edits for Dos Santos et al. 2026
 Figure 1 Scale-naive analyses provide poor control of the false discovery rate (FDR) across all datasets:
    - Produced from 'fig_tprfdr_falseDiscoveryRate.png'
    - Manually created legend above figure: coloured, dashed lines indicating ALDEx2/3 and black/dark grey/light grey for other tools; numbers with coloured, dashed lines indicating gamma value
+   - Added white and grey boxes to obscure axis labels/titles, and strip titles, respectively, then replaced with text boxes containing larger text (requested by journal at proofing)
 
 Figure 2 Sensitivity is reduced when adding increasing amounts of scale uncertainty:
    - Produced from 'fig_tprfdr_truePositiveRate.png'
    - Manually created legend above figure: coloured, dashed lines indicating ALDEx2/3 and black/dark grey/light grey for other tools; numbers with coloured, dashed lines indicating gamma value
+   - Added white and grey boxes to obscure axis labels/titles, and strip titles, respectively, then replaced with text boxes containing larger text (requested by journal at proofing)
 
 Figure 3 ALDEx3 scale models achieve the same result as a dual P-value/fold-change cutoff without inflating the FDR:
    - Produced from 'fig_a3_volcEffect_v.png' and 'fig_a3_volcEffect_e.png'
