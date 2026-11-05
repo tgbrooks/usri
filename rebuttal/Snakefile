@@ -1,0 +1,198 @@
+# Re-analysis of Figs 1-2 of Dos Santos, Murariu et al. (2026) with
+# pair-respecting permutation schemes. Run from the REPOSITORY ROOT:
+#
+#   uv run --project rebuttal snakemake -s rebuttal/Snakefile --profile rebuttal/profiles/slurm
+#
+# See rebuttal/README.md.
+
+from pathlib import Path
+
+configfile: "rebuttal/config/config.yaml"
+
+OUT = config["outdir"]
+RDIR = "rebuttal/R"
+RS = config["rscript"]
+NITER = int(config["n_iter"])
+CHUNK = int(config["chunk_size"])
+CHUNKS = [(s, min(s + CHUNK - 1, NITER)) for s in range(1, NITER + 1, CHUNK)]
+CHUNK_IDS = [f"{a:03d}-{b:03d}" for a, b in CHUNKS]
+
+if config.get("container"):
+    container: config["container"]
+
+# single-threaded BLAS everywhere; parallelism comes from running many jobs
+shell.prefix("export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1; ")
+
+wildcard_constraints:
+    scheme=r"[A-Za-z0-9_]+",
+    dataset=r"[a-z]+",
+    tool=r"[a-z0-9_]+",
+    variant=r"published|corrected",
+    chunk=r"\d{3}-\d{3}",
+
+
+def expand_tools(tools):
+    out = []
+    for t in tools:
+        if t in ("aldex2", "aldex3"):
+            if t == "aldex2" and not config.get("enable_aldex2", False):
+                continue
+            out += [f"{t}_{g}" for g in config["gammas"]]
+        else:
+            out.append(t)
+    return out
+
+
+def scheme_cfg(scheme):
+    return config["schemes"][scheme]
+
+
+def scheme_datasets(scheme):
+    return scheme_cfg(scheme).get("datasets", list(config["datasets"]))
+
+
+def scheme_tools(scheme):
+    tools = list(scheme_cfg(scheme).get("tools", config["tools"]))
+    if config.get("enable_aldex2", False) and "aldex2" not in tools:
+        tools.append("aldex2")
+    return expand_tools(tools)
+
+
+def combos(scheme):
+    return [(d, t) for d in scheme_datasets(scheme) for t in scheme_tools(scheme)]
+
+
+def gamma_of(tool):
+    if tool.startswith("aldex"):
+        return config["gammas"][tool.split("_")[1]]
+    return ""
+
+
+def family(tool):
+    return tool.split("_")[0] if tool.startswith("aldex") else tool
+
+
+def mem_mb(wc, attempt, calls):
+    r = config["resources"][family(wc.tool)]
+    gs = config["datasets"][wc.dataset]["gs_M"]
+    return int((r["mem_base_mb"] + r["mem_kb_per_gs"] * gs * 1000) * (1 + 0.5 * (attempt - 1)))
+
+
+def runtime_min(wc, attempt, calls):
+    r = config["resources"][family(wc.tool)]
+    gs = config["datasets"][wc.dataset]["gs_M"]
+    return int((10 + calls * r["sec_per_Mgs"] * gs / 60 * 2) * attempt)
+
+
+def prep_path(scheme, dataset):
+    return f"{OUT}/data/{scheme_cfg(scheme)['data']}/{dataset}.rds"
+
+
+# ---------------------------------------------------------------------------
+
+rule all:
+    input:
+        expand(f"{OUT}/{{scheme}}/tpr_fdr.tsv", scheme=config["run_schemes"]),
+        [f"{OUT}/{s}/runs/{d}/{t}/unpermuted.rds"
+         for s in config["run_schemes"] for d, t in combos(s)],
+        f"{OUT}/figures/fdr_per_iteration.png",
+        ([f"{OUT}/published/check_vs_paper.tsv"]
+         if "published" in config["run_schemes"] else []),
+
+
+rule prep_data:
+    output: f"{OUT}/data/{{variant}}/{{dataset}}.rds"
+    log: f"{OUT}/logs/prep/{{variant}}_{{dataset}}.log"
+    resources: mem_mb=4000, runtime=20
+    shell:
+        "{RS} {RDIR}/prep_data.R dataset={wildcards.dataset} variant={wildcards.variant}"
+        " datadir=data out={output} > {log} 2>&1"
+
+
+rule run_chunk:
+    input: lambda wc: prep_path(wc.scheme, wc.dataset)
+    output: f"{OUT}/{{scheme}}/runs/{{dataset}}/{{tool}}/chunk_{{chunk}}.rds"
+    log: f"{OUT}/logs/{{scheme}}/{{dataset}}/{{tool}}/chunk_{{chunk}}.log"
+    benchmark: f"{OUT}/benchmarks/{{scheme}}/{{dataset}}/{{tool}}/chunk_{{chunk}}.tsv"
+    params:
+        frm=lambda wc: int(wc.chunk.split("-")[0]),
+        to=lambda wc: int(wc.chunk.split("-")[1]),
+        perm=lambda wc: scheme_cfg(wc.scheme)["permutation"],
+        model=lambda wc: scheme_cfg(wc.scheme)["model"],
+        gamma=lambda wc: gamma_of(wc.tool),
+    resources:
+        mem_mb=lambda wc, attempt: mem_mb(wc, attempt, 2),
+        runtime=lambda wc, attempt: runtime_min(wc, attempt, 2 * CHUNK),
+    shell:
+        "{RS} {RDIR}/run_chunk.R prep={input} out={output} tool={wildcards.tool}"
+        " from={params.frm} to={params.to} permutation={params.perm} model={params.model}"
+        " prop_null={config[prop_null]} mean={config[signal_mean]} sd={config[signal_sd]}"
+        " gamma={params.gamma} nsample={config[aldex_nsample]} keep_thinned=false"
+        " > {log} 2>&1"
+
+
+rule run_unpermuted:
+    input: lambda wc: prep_path(wc.scheme, wc.dataset)
+    output: f"{OUT}/{{scheme}}/runs/{{dataset}}/{{tool}}/unpermuted.rds"
+    log: f"{OUT}/logs/{{scheme}}/{{dataset}}/{{tool}}/unpermuted.log"
+    benchmark: f"{OUT}/benchmarks/{{scheme}}/{{dataset}}/{{tool}}/unpermuted.tsv"
+    params:
+        model=lambda wc: scheme_cfg(wc.scheme)["model"],
+        gamma=lambda wc: gamma_of(wc.tool),
+    resources:
+        mem_mb=lambda wc, attempt: mem_mb(wc, attempt, 1),
+        runtime=lambda wc, attempt: runtime_min(wc, attempt, 1),
+    shell:
+        "{RS} {RDIR}/run_unpermuted.R prep={input} out={output} tool={wildcards.tool}"
+        " model={params.model} gamma={params.gamma} nsample={config[aldex_nsample]}"
+        " > {log} 2>&1"
+
+
+rule confusion:
+    input:
+        expand(f"{OUT}/{{{{scheme}}}}/runs/{{{{dataset}}}}/{{{{tool}}}}/chunk_{{chunk}}.rds",
+               chunk=CHUNK_IDS)
+    output: f"{OUT}/{{scheme}}/confusion/{{dataset}}.{{tool}}.rds"
+    log: f"{OUT}/logs/{{scheme}}/{{dataset}}/{{tool}}/confusion.log"
+    resources: mem_mb=4000, runtime=20
+    params: chunks=lambda wc, input: ",".join(input)
+    shell:
+        "{RS} {RDIR}/confusion.R tool={wildcards.tool} dataset={wildcards.dataset}"
+        " fdr={config[fdr]} repo=. out={output} chunks={params.chunks} > {log} 2>&1"
+
+
+rule summarise:
+    input: lambda wc: [f"{OUT}/{wc.scheme}/confusion/{d}.{t}.rds" for d, t in combos(wc.scheme)]
+    output:
+        tidy=f"{OUT}/{{scheme}}/tpr_fdr.tsv",
+        iter=f"{OUT}/{{scheme}}/per_iteration.tsv",
+    log: f"{OUT}/logs/{{scheme}}/summarise.log"
+    resources: mem_mb=4000, runtime=20
+    params: files=lambda wc, input: ",".join(input)
+    shell:
+        "{RS} {RDIR}/summarise.R scheme={wildcards.scheme} out_tidy={output.tidy}"
+        " out_iter={output.iter} files={params.files} > {log} 2>&1"
+
+
+rule check_published:
+    input: f"{OUT}/published/per_iteration.tsv"
+    output: f"{OUT}/published/check_vs_paper.tsv"
+    log: f"{OUT}/logs/published/check_vs_paper.log"
+    resources: mem_mb=4000, runtime=20
+    shell:
+        "{RS} {RDIR}/check_published.R repo=. iter_table={input} out={output} > {log} 2>&1"
+
+
+rule figures:
+    input:
+        tidy=expand(f"{OUT}/{{scheme}}/tpr_fdr.tsv", scheme=config["run_schemes"]),
+        iter=expand(f"{OUT}/{{scheme}}/per_iteration.tsv", scheme=config["run_schemes"]),
+    output: f"{OUT}/figures/fdr_per_iteration.png"
+    log: f"{OUT}/logs/figures.log"
+    resources: mem_mb=4000, runtime=20
+    params:
+        tidy=lambda wc, input: ",".join(input.tidy),
+        iter=lambda wc, input: ",".join(input.iter),
+    shell:
+        "{RS} {RDIR}/figures.R outdir={OUT}/figures tidy={params.tidy} iter={params.iter}"
+        " paper=data/all_TPR_FDR.Rda > {log} 2>&1"

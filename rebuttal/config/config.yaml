@@ -1,0 +1,112 @@
+# Configuration for the Fig 1 / Fig 2 re-analysis pipeline.
+# All paths are relative to the repository root (run snakemake from there).
+
+# Apptainer image (built from rebuttal/container/usri-r.def). Set to "" to
+# use whatever `Rscript` is on PATH instead (e.g. for quick local tests).
+container: "rebuttal/container/usri-r.sif"
+rscript: "Rscript"
+
+outdir: "rebuttal/results"
+
+# ---------------------------------------------------------------------------
+# Simulation settings (match the paper: 100 iterations, 5% non-null genes,
+# signal ~ N(0, 2), BH-adjusted P < 0.05 in get_confusion()).
+# ---------------------------------------------------------------------------
+n_iter: 100
+chunk_size: 10          # iterations per cluster job (seeds are per-iteration, so
+                        # chunking does not change results)
+prop_null: 0.95
+signal_mean: 0
+signal_sd: 2
+fdr: 0.05
+aldex_nsample: 128      # ALDEx2 mc.samples / ALDEx3 nsample (paper default)
+
+# ---------------------------------------------------------------------------
+# Datasets (transcriptomic only; 16S and metatranscriptome are dropped).
+# gs_M = genes x samples after filtering, in millions; used to size jobs.
+# ---------------------------------------------------------------------------
+datasets:
+  brca:   {gs_M: 4.89}
+  kirc:   {gs_M: 3.08}
+  lihc:   {gs_M: 1.79}
+  luad:   {gs_M: 2.26}
+  prad:   {gs_M: 2.22}
+  thca:   {gs_M: 2.53}
+  immuno: {gs_M: 2.23}
+  yeast:  {gs_M: 0.49}
+  pseudo: {gs_M: 1.75}
+
+# ---------------------------------------------------------------------------
+# Tools. ALDEx2 is very expensive (~0.3 ms and ~9 KB per gene x sample per
+# call; ~23 min / ~45 GB per BRCA call) and is off by default.
+#   deseq    : DESeq2, as in code/des.fun.R
+#   edger    : edgeR as in code/edg.fun.R: glmQLFit()/glmQLFTest() on the raw
+#              count matrix (edgeR >= 4 so this is already the v4 QL method,
+#              legacy = FALSE), but with no TMM normalisation
+#   edger_ql : edgeR v4 QL "by the book": DGEList -> normLibSizes (TMM) ->
+#              glmQLFit(legacy = FALSE) -> glmQLFTest   (NEW, not in paper)
+#   limma    : voom + limma, as in code/lim.fun.R
+#   aldex3   : ALDEx3 clr.sm scale model, as in code/ald3.fun.R
+#   aldex2   : ALDEx2, as in code/ald2.fun.R
+# ---------------------------------------------------------------------------
+tools: [deseq, edger, edger_ql, limma, aldex3]
+enable_aldex2: false
+gammas: {"0": 0.001, "1": 0.1, "2": 0.2, "3": 0.3, "4": 0.4, "5": 0.5}
+
+# Job sizing. mem_mb = mem_base_mb + mem_kb_per_gs * gs_M * 1000
+#             runtime (min) = 10 + chunk_size * calls * sec_per_Mgs * gs_M / 60 * 2
+# Measured on one core: deseq ~12 s/M, edgeR/limma ~1-2 s/M, ALDEx2 ~290 s/M.
+# ALDEx3 is a guess; check rebuttal/results/benchmarks/ after a first run.
+resources:
+  deseq:    {mem_base_mb: 1500, mem_kb_per_gs: 0.5, sec_per_Mgs: 15}
+  edger:    {mem_base_mb: 1000, mem_kb_per_gs: 0.3, sec_per_Mgs: 3}
+  edger_ql: {mem_base_mb: 1000, mem_kb_per_gs: 0.3, sec_per_Mgs: 3}
+  limma:    {mem_base_mb: 1000, mem_kb_per_gs: 0.3, sec_per_Mgs: 3}
+  aldex3:   {mem_base_mb: 2000, mem_kb_per_gs: 6,   sec_per_Mgs: 150}
+  aldex2:   {mem_base_mb: 2000, mem_kb_per_gs: 10,  sec_per_Mgs: 300}
+
+# ---------------------------------------------------------------------------
+# Schemes = (data variant, permutation, model).
+#  data:
+#    published : exactly as the paper's scripts load the data, including the
+#                PD1 header bug (read.table(skip = 35) drops 35 genes and uses
+#                gene 36 as the header) and Pt109's duplicate "On" sample
+#    corrected : PD1 read correctly; Pt109 technical replicate dropped
+#  permutation:
+#    thin2group         : seqgendiff::thin_2group (paper): fresh random 50/50
+#                         split ignoring pairs
+#    pairsplit          : members of a pair always go to opposite groups (coin
+#                         flip per pair); unpaired samples split 50/50
+#    pairsplit_balanced : as pairsplit, but exactly half of the pairs are
+#                         flipped (and singletons split 50/50 within each
+#                         original condition), so each new group holds n/2
+#                         samples of each original condition; removes leakage
+#                         of the real biological effect into the "null"
+#  model:
+#    unpaired : ~ group (paper)
+#    paired   : ~ pair + group, on complete pairs only (singletons dropped)
+# The thinning signal (which genes are non-null and their effect sizes) is
+# drawn identically in every scheme for a given iteration, so schemes can be
+# compared iteration by iteration.
+# ---------------------------------------------------------------------------
+schemes:
+  published:
+    data: published
+    permutation: thin2group
+    model: unpaired
+  pairsplit:
+    data: corrected
+    permutation: pairsplit
+    model: unpaired
+  pairsplit_balanced:
+    data: corrected
+    permutation: pairsplit_balanced
+    model: unpaired
+  paired_model:
+    data: corrected
+    permutation: pairsplit
+    model: paired
+    datasets: [brca, kirc, lihc, luad, prad, thca, immuno, pseudo]  # yeast has no pairs
+    tools: [deseq, edger, edger_ql, limma, aldex3]
+
+run_schemes: [published, pairsplit]
