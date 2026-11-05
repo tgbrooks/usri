@@ -65,6 +65,8 @@ if (length(unique(tidy$scheme)) > 1) {
     met <- names(which(c(cFDR0 = "FDR", cTPR0 = "TPR") == m))
     p <- ggplot(d[d$metric == met, ], aes(coeff, value, colour = label, linetype = scheme)) +
       geom_line() + facet_wrap(~ dataset_lab) + theme_bw() +
+      scale_linetype_manual(values = c(paper = "dotted", published = "solid",
+        pairsplit = "dashed", pairsplit_balanced = "dotdash", paired_model = "longdash")) +
       labs(x = "Threshold: model difference between groups", y = m, colour = "Tool")
     ggsave(file.path(a$outdir, sprintf("compare_%s.png", tolower(m))), p,
            width = 12, height = 8, dpi = 150)
