@@ -81,7 +81,8 @@ def mem_mb(wc, attempt, calls):
 def runtime_min(wc, attempt, calls):
     r = config["resources"][family(wc.tool)]
     gs = config["datasets"][wc.dataset]["gs_M"]
-    return int((10 + calls * r["sec_per_Mgs"] * gs / 60 * 2) * attempt)
+    f = scheme_cfg(wc.scheme).get("runtime_factor", 1)
+    return int((10 + calls * r["sec_per_Mgs"] * gs / 60 * 2) * f * attempt)
 
 
 def prep_path(scheme, dataset):

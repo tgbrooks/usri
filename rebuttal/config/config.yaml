@@ -106,6 +106,9 @@ schemes:
     data: corrected
     permutation: pairsplit
     model: paired
+    # ~ pair + group has ~50-110 pair coefficients: DESeq2 took 10-20 min and
+    # edgeR >15 min per iteration in a local test, so allow much longer jobs
+    runtime_factor: 25
     datasets: [brca, kirc, lihc, luad, prad, thca, immuno, pseudo]  # yeast has no pairs
     tools: [deseq, edger, edger_ql, limma, aldex3]
 
