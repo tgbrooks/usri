@@ -1,0 +1,16 @@
+# Example SLURM profile (snakemake >= 8). Adjust partition/account to your cluster.
+executor: slurm
+jobs: 300
+software-deployment-method: apptainer
+apptainer-args: "--cleanenv"
+latency-wait: 60
+retries: 1                     # second attempt gets 1.5x memory and 2x runtime
+rerun-incomplete: true
+keep-going: true
+printshellcmds: true
+default-resources:
+  slurm_partition: "CHANGE_ME"
+  slurm_account: "CHANGE_ME"
+  mem_mb: 4000
+  runtime: 30
+  cpus_per_task: 1

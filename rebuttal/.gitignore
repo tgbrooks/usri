@@ -1,0 +1,4 @@
+results/
+container/*.sif
+.venv/
+.snakemake/

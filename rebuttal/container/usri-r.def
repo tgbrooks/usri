@@ -1,0 +1,39 @@
+Bootstrap: docker
+From: bioconductor/bioconductor_docker:RELEASE_3_22
+
+# R 4.5 + Bioconductor 3.22: the closest release to the versions in the paper
+# (R 4.5.1, DESeq2 1.49.1 and edgeR 4.7.2 were Bioconductor-devel builds of this
+# cycle). ALDEx3 is pinned to a commit that reports version 0.3.0, as cited in
+# the paper. Commits with that version number run from 6424511 (2025-10-20) to
+# 41d9240 (2026-01-16); 8c05ad4 is the 0.3.0 merge preceding the paper's
+# submission. check_vs_paper.tsv shows whether ALDEx3 results match the paper
+# exactly; if they don't, try another commit in that range.
+#
+# Build:  apptainer build rebuttal/container/usri-r.sif rebuttal/container/usri-r.def
+# (or build with docker and convert, if you can't build on the cluster)
+
+%environment
+    export OMP_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+    export LC_ALL=C.UTF-8
+
+%post
+    set -e
+    ALDEX3_REF=8c05ad4
+    SEQGENDIFF_VERSION=1.2.4
+
+    Rscript -e 'install.packages(c("remotes", "BiocManager"))'
+    Rscript -e 'BiocManager::install(c("DESeq2", "edgeR", "limma", "ALDEx2", "sva"), ask = FALSE, update = FALSE)'
+    Rscript -e 'install.packages(c("assertthat", "irlba", "pdist", "matchingR", "clue", "purrr", "lme4", "lmerTest", "MASS", "nlme", "abind", "matrixStats", "ggplot2"))'
+    Rscript -e "remotes::install_version('seqgendiff', version = '${SEQGENDIFF_VERSION}', upgrade = 'never', repos = 'https://cloud.r-project.org')"
+    Rscript -e "remotes::install_github('jsilve24/ALDEx3', ref = '${ALDEX3_REF}', upgrade = 'never', dependencies = FALSE)"
+
+    Rscript -e 'pk <- c("DESeq2","edgeR","limma","ALDEx2","ALDEx3","seqgendiff","sva","ggplot2"); for (p in pk) suppressPackageStartupMessages(library(p, character.only = TRUE)); writeLines(capture.output(sessionInfo()), "/opt/usri-sessionInfo.txt")'
+    echo "ALDEx3 ref: ${ALDEX3_REF}" >> /opt/usri-sessionInfo.txt
+
+%test
+    Rscript -e 'for (p in c("DESeq2","edgeR","limma","ALDEx2","ALDEx3","seqgendiff")) cat(p, as.character(packageVersion(p)), "\n")'
+
+%labels
+    Description R environment for the usri Fig 1/2 re-analysis

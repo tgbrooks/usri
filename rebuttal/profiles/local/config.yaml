@@ -1,0 +1,8 @@
+# Local (single machine) profile.
+cores: 4
+resources: [mem_mb=14000]
+software-deployment-method: apptainer
+apptainer-args: "--cleanenv"
+rerun-incomplete: true
+keep-going: true
+printshellcmds: true
