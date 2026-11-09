@@ -25,6 +25,12 @@ From: bioconductor/bioconductor_docker:RELEASE_3_22
 
     Rscript -e 'install.packages(c("remotes", "BiocManager"))'
     Rscript -e 'BiocManager::install(c("DESeq2", "edgeR", "limma", "ALDEx2", "sva"), ask = FALSE, update = FALSE)'
+    # ALDEx2 imports Rfast. The prebuilt Rfast binary references the old TBB
+    # API (tbb::task, removed in oneTBB >= 2021) and fails to load with
+    # "undefined symbol: _ZTIN3tbb4taskE". Compile RcppParallel and Rfast from
+    # source so both are built against the same TBB.
+    Rscript -e 'install.packages(c("RcppParallel", "Rfast"), type = "source", repos = "https://cloud.r-project.org")'
+    Rscript -e 'library(Rfast); library(ALDEx2)'
     Rscript -e 'install.packages(c("assertthat", "irlba", "pdist", "matchingR", "clue", "purrr", "lme4", "lmerTest", "MASS", "nlme", "abind", "matrixStats", "ggplot2"))'
     Rscript -e "remotes::install_version('seqgendiff', version = '${SEQGENDIFF_VERSION}', upgrade = 'never', repos = 'https://cloud.r-project.org')"
     Rscript -e "remotes::install_github('jsilve24/ALDEx3', ref = '${ALDEX3_REF}', upgrade = 'never', dependencies = FALSE)"
