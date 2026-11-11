@@ -25,9 +25,17 @@ ignoring pairs, and all tools are fitted with unpaired models.
 | scheme | data | permutation | model |
 |---|---|---|---|
 | `published` | as in the paper's scripts | `thin_2group` (paper) | `~ group` |
+| `thin2group_corrected` | corrected | `thin_2group` (paper) | `~ group` |
 | `pairsplit` | corrected | each pair split across groups (coin flip per pair) | `~ group` |
 | `pairsplit_balanced` | corrected | pairs split *and* exactly half flipped, so each new group holds n/2 of each original condition | `~ group` |
 | `paired_model` | corrected | pairsplit | `~ pair + group`, complete pairs only |
+
+`run_schemes` selects which run. In the figures, `paper` means the
+numbers stored in the repository (`data/all_TPR_FDR.Rda`), not recomputed;
+`published` is this workflow's recomputation of them. Comparing
+`thin2group_corrected` with `pairsplit` isolates the permutation change.
+Note that `edger_ql` (TMM) is a separate tool run in every scheme, not a
+correction applied by any scheme.
 
 `run_schemes` selects which run (default: `published`, `pairsplit`).
 
@@ -94,6 +102,9 @@ Before the full run, check the ALDEx3 cost on your cluster with
 - `published/check_vs_paper.tsv` — iteration-by-iteration comparison with
   `analysis/confusionMats/`. DESeq2/edgeR/limma should match exactly; ALDEx3
   only if the same package commit is used.
+- `null_counts.tsv`, `figures/null_de_counts.png` — genes called DE with no
+  injected signal: `.r` runs (permuted labels, all false positives) and `.u`
+  runs (original labels)
 - `figures/` — `fdr_<scheme>.png`, `tpr_<scheme>.png`, `compare_fdr.png`,
   `compare_tpr.png` (schemes overlaid, including the paper's own numbers),
   `fdr_per_iteration.png`

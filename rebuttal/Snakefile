@@ -97,6 +97,7 @@ rule all:
         [f"{OUT}/{s}/runs/{d}/{t}/unpermuted.rds"
          for s in config["run_schemes"] for d, t in combos(s)],
         f"{OUT}/figures/fdr_per_iteration.png",
+        f"{OUT}/null_counts.tsv",
         ([f"{OUT}/published/check_vs_paper.tsv"]
          if "published" in config["run_schemes"] else []),
 
@@ -156,10 +157,13 @@ rule confusion:
     output: f"{OUT}/{{scheme}}/confusion/{{dataset}}.{{tool}}.rds"
     log: f"{OUT}/logs/{{scheme}}/{{dataset}}/{{tool}}/confusion.log"
     resources: mem_mb=4000, runtime=20
-    params: chunks=lambda wc, input: ",".join(input)
+    params:
+        chunks=lambda wc, input: ",".join(input),
+        n_iter=NITER,   # a params change re-runs this rule if n_iter changes
     shell:
         "{RS} {RDIR}/confusion.R tool={wildcards.tool} dataset={wildcards.dataset}"
-        " fdr={config[fdr]} repo=. out={output} chunks={params.chunks} > {log} 2>&1"
+        " fdr={config[fdr]} repo=. n_iter={params.n_iter} out={output}"
+        " chunks={params.chunks} > {log} 2>&1"
 
 
 rule summarise:
@@ -197,3 +201,22 @@ rule figures:
     shell:
         "{RS} {RDIR}/figures.R outdir={OUT}/figures tidy={params.tidy} iter={params.iter}"
         " paper=data/all_TPR_FDR.Rda > {log} 2>&1"
+
+
+rule null_counts:
+    # false positives with no injected signal (.r runs) and DE calls on the
+    # original labels (.u runs)
+    input:
+        [f"{OUT}/{s}/runs/{d}/{t}/{f}" for s in config["run_schemes"] for d, t in combos(s)
+         for f in [f"chunk_{c}.rds" for c in CHUNK_IDS] + ["unpermuted.rds"]]
+    output:
+        tsv=f"{OUT}/null_counts.tsv",
+        png=f"{OUT}/figures/null_de_counts.png",
+    log: f"{OUT}/logs/null_counts.log"
+    resources: mem_mb=8000, runtime=60
+    params:
+        runs=lambda wc: ",".join(sorted({f"{OUT}/{s}/runs/{d}/{t}" for s in config["run_schemes"]
+                                          for d, t in combos(s)}))
+    shell:
+        "{RS} {RDIR}/null_counts.R fdr={config[fdr]} out={output.tsv} plot={output.png}"
+        " runs={params.runs} > {log} 2>&1"

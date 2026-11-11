@@ -94,6 +94,10 @@ schemes:
     data: published
     permutation: thin2group
     model: unpaired
+  thin2group_corrected:     # paper's permutation on corrected data: isolates
+    data: corrected          # the effect of the permutation scheme alone
+    permutation: thin2group
+    model: unpaired
   pairsplit:
     data: corrected
     permutation: pairsplit
