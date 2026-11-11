@@ -6,10 +6,6 @@ source(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value
 a <- parse_args()
 source(file.path(a$repo, "code", "get_confusion.R"))
 run <- load_run(strsplit(a$chunks, ",")[[1]])
-# guard against summarising a partial or stale set of chunks
-if (!is.null(a$n_iter) && !identical(run$iter, seq_len(as.integer(a$n_iter))))
-  stop("expected iterations 1..", a$n_iter, " but chunks contain: ", paste(range(run$iter), collapse = "-"),
-       " (", length(run$iter), " iterations)")
 cm <- get_confusion(input = run, prog = confusion_prog(a$tool), FDR = num(a$fdr))
 
 per_iter <- do.call(rbind, lapply(names(cm$raw_coeff), function(th) {

@@ -105,9 +105,12 @@ Before the full run, check the ALDEx3 cost on your cluster with
 - `null_counts.tsv`, `figures/null_de_counts.png` — genes called DE with no
   injected signal: `.r` runs (permuted labels, all false positives) and `.u`
   runs (original labels)
+- `figures/pca/` — per dataset: `pca_<dataset>.png` (vst, top 500 genes,
+  pairs joined) and `scree_<dataset>.png/.tsv` (all genes; whole dataset,
+  each original group, and the permuted groups of iterations 1–10)
 - `figures/` — `fdr_<scheme>.png`, `tpr_<scheme>.png`, `compare_fdr.png`,
   `compare_tpr.png` (schemes overlaid, including the paper's own numbers),
-  `fdr_per_iteration.png`
+  `fdr_per_iteration.png`, `tpr_per_iteration.png`
 
 ## Compute (one core per job, measured)
 

@@ -73,12 +73,15 @@ if (length(unique(tidy$scheme)) > 1) {
   }
 }
 
-# Per-iteration FDR at the lowest threshold: shows how much single
+# Per-iteration FDR and TPR at the lowest threshold: shows how much single
 # permutations vary (shared across all genes within an iteration)
 d <- iter[iter$coeff == min(iter$coeff) & iter$gamma %in% c("naive", "0", "0.5"), ]
 d$label <- ifelse(d$gamma == "naive", d$family, paste0(d$family, " (g=", d$gamma, ")"))
-p <- ggplot(d, aes(label, FDR, fill = scheme)) +
-  geom_boxplot(outlier.size = 0.5) + facet_wrap(~ dataset_lab) + theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = NULL, y = "FDR per iteration (threshold = 0.01)")
-ggsave(file.path(a$outdir, "fdr_per_iteration.png"), p, width = 12, height = 9, dpi = 150)
+for (m in c("FDR", "TPR")) {
+  p <- ggplot(d, aes(label, .data[[m]], fill = scheme)) +
+    geom_boxplot(outlier.size = 0.5) + facet_wrap(~ dataset_lab) + theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = NULL, y = sprintf("%s per iteration (threshold = %s)", m, min(iter$coeff)))
+  ggsave(file.path(a$outdir, sprintf("%s_per_iteration.png", tolower(m))), p,
+         width = 12, height = 9, dpi = 150)
+}

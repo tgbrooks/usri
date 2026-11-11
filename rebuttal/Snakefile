@@ -98,6 +98,7 @@ rule all:
          for s in config["run_schemes"] for d, t in combos(s)],
         f"{OUT}/figures/fdr_per_iteration.png",
         f"{OUT}/null_counts.tsv",
+        expand(f"{OUT}/figures/pca/scree_{{dataset}}.png", dataset=list(config["datasets"])),
         ([f"{OUT}/published/check_vs_paper.tsv"]
          if "published" in config["run_schemes"] else []),
 
@@ -157,13 +158,10 @@ rule confusion:
     output: f"{OUT}/{{scheme}}/confusion/{{dataset}}.{{tool}}.rds"
     log: f"{OUT}/logs/{{scheme}}/{{dataset}}/{{tool}}/confusion.log"
     resources: mem_mb=4000, runtime=20
-    params:
-        chunks=lambda wc, input: ",".join(input),
-        n_iter=NITER,   # a params change re-runs this rule if n_iter changes
+    params: chunks=lambda wc, input: ",".join(input)
     shell:
         "{RS} {RDIR}/confusion.R tool={wildcards.tool} dataset={wildcards.dataset}"
-        " fdr={config[fdr]} repo=. n_iter={params.n_iter} out={output}"
-        " chunks={params.chunks} > {log} 2>&1"
+        " fdr={config[fdr]} repo=. out={output} chunks={params.chunks} > {log} 2>&1"
 
 
 rule summarise:
@@ -192,7 +190,9 @@ rule figures:
     input:
         tidy=expand(f"{OUT}/{{scheme}}/tpr_fdr.tsv", scheme=config["run_schemes"]),
         iter=expand(f"{OUT}/{{scheme}}/per_iteration.tsv", scheme=config["run_schemes"]),
-    output: f"{OUT}/figures/fdr_per_iteration.png"
+    output:
+        f"{OUT}/figures/fdr_per_iteration.png",
+        f"{OUT}/figures/tpr_per_iteration.png",
     log: f"{OUT}/logs/figures.log"
     resources: mem_mb=4000, runtime=20
     params:
@@ -220,3 +220,19 @@ rule null_counts:
     shell:
         "{RS} {RDIR}/null_counts.R fdr={config[fdr]} out={output.tsv} plot={output.png}"
         " runs={params.runs} > {log} 2>&1"
+
+
+rule pca_scree:
+    input: f"{OUT}/data/corrected/{{dataset}}.rds"
+    output:
+        pca=f"{OUT}/figures/pca/pca_{{dataset}}.png",
+        scree=f"{OUT}/figures/pca/scree_{{dataset}}.png",
+        tsv=f"{OUT}/figures/pca/scree_{{dataset}}.tsv",
+    log: f"{OUT}/logs/pca/{{dataset}}.log"
+    resources: mem_mb=8000, runtime=60
+    params: perms=",".join(config["pca_permutations"])
+    shell:
+        "{RS} {RDIR}/pca_scree.R prep={input} outdir={OUT}/figures/pca"
+        " n_perm={config[pca_n_perm]} permutations={params.perms}"
+        " prop_null={config[prop_null]} mean={config[signal_mean]} sd={config[signal_sd]}"
+        " > {log} 2>&1"

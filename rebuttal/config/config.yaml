@@ -117,3 +117,8 @@ schemes:
     tools: [deseq, edger, edger_ql, limma, aldex3]
 
 run_schemes: [published, pairsplit]
+
+# PCA / scree plots (corrected data, original counts). Permuted groups are
+# taken from the pipeline's iterations 1..pca_n_perm under each permutation.
+pca_n_perm: 10
+pca_permutations: [thin2group, pairsplit]
