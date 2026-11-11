@@ -106,7 +106,7 @@ Before the full run, check the ALDEx3 cost on your cluster with
   injected signal: `.r` runs (permuted labels, all false positives) and `.u`
   runs (original labels)
 - `figures/pca/` — per dataset: `pca_<dataset>.png` (vst, top 500 genes,
-  pairs joined) and `scree_<dataset>.png/.tsv` (all genes; whole dataset,
+  pairs joined) and `scree_<dataset>.png/.tsv` (all genes, linear scale, first 10 PCs; all 30 in the .tsv; whole dataset,
   each original group, and the permuted groups of iterations 1–10)
 - `figures/` — `fdr_<scheme>.png`, `tpr_<scheme>.png`, `compare_fdr.png`,
   `compare_tpr.png` (schemes overlaid, including the paper's own numbers),

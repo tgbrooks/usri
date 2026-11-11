@@ -74,17 +74,28 @@ write.table(res, file.path(a$outdir, sprintf("scree_%s.tsv", ds)), sep = "\t",
 res$curve <- paste(res$set, res$group, res$iter)
 res$set <- factor(res$set, levels = c("all samples", "original group",
                                       paste("permuted:", perms)))
+nshow <- as.integer(if (is.null(a$nshow)) 10 else a$nshow)
+res$curve_type <- ifelse(res$set == "original group", paste("original:", res$group),
+                         as.character(res$set))
 long <- rbind(data.frame(res, metric = "variance", value = res$variance),
-              data.frame(res, metric = "proportion of total", value = res$proportion))
+              data.frame(res, metric = "proportion of total variance", value = res$proportion))
+long <- long[long$PC <= nshow, ]
 orig <- long$set %in% c("all samples", "original group")
-g <- ggplot(long, aes(PC, value, group = curve, colour = set)) +
-  geom_line(data = long[!orig, ], alpha = 0.35, linewidth = 0.4) +
-  geom_line(data = long[orig, ], aes(linetype = group), linewidth = 0.9) +
-  scale_y_log10() + facet_wrap(~ metric, scales = "free_y") + theme_bw() +
-  labs(x = "principal component", y = NULL, linetype = "original",
-       colour = NULL,
-       title = sprintf("%s: scree (vst, all %d genes); permuted = groups from iterations 1-%d",
-                       ds, nrow(vs), n_perm))
+lv <- c("all samples", paste("original:", unique(prep$conditions)), paste("permuted:", perms))
+long$curve_type <- factor(long$curve_type, levels = lv)
+pal <- setNames(c("black", "#D55E00", "#0072B2", "#E69F00", "#56B4E9", "#009E73")[seq_along(lv)], lv)
+pal[paste("permuted:", perms)] <- c("grey55", "#CC79A7", "#009E73")[seq_along(perms)]
+g <- ggplot(long, aes(PC, value, group = curve, colour = curve_type)) +
+  geom_line(data = long[!orig, ], alpha = 0.4, linewidth = 0.4) +
+  geom_line(data = long[orig, ], linewidth = 1) +
+  geom_point(data = long[orig, ], size = 1.8) +
+  scale_colour_manual(values = pal, drop = FALSE) +
+  scale_x_continuous(breaks = seq_len(nshow)) +
+  expand_limits(y = 0) +
+  facet_wrap(~ metric, scales = "free_y") + theme_bw() +
+  labs(x = "principal component", y = NULL, colour = NULL,
+       title = sprintf("%s: scree (vst, all %d genes), first %d PCs", ds, nrow(vs), nshow),
+       subtitle = sprintf("thin lines: the two permuted groups of iterations 1-%d", n_perm))
 ggsave(file.path(a$outdir, sprintf("scree_%s.png", ds)), g, width = 11, height = 5, dpi = 150)
 
 tv <- unique(res[, c("set", "group", "iter", "n", "total_variance")])
