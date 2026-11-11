@@ -53,7 +53,8 @@ Pt109 library.
 **Tools.** `deseq`, `edger` (paper: `glmQLFit` on the raw matrix — this is
 already edgeR v4 QL because `legacy = FALSE` is the default in edgeR ≥ 4, but
 without TMM), `edger_ql` (new: `DGEList` → `normLibSizes` → `glmQLFit(legacy =
-FALSE)` → `glmQLFTest`), `limma` (voom), `aldex3` (γ = 0.001, 0.1 … 0.5). ALDEx2
+FALSE)` → `glmQLFTest`), `edger_ql_robust` (new: the same with
+`robust = TRUE`), `limma` (voom), `aldex3` (γ = 0.001, 0.1 … 0.5). ALDEx2
 is off by default (`enable_aldex2: true` to add it; ~23 min and ~45 GB per
 BRCA call).
 

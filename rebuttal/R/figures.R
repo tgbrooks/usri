@@ -21,6 +21,7 @@ ds_lab <- c(brca = "TCGA: BRCA", kirc = "TCGA: KIRC", lihc = "TCGA: LIHC",
             luad = "TCGA: LUAD", prad = "TCGA: PRAD", thca = "TCGA: THCA",
             immuno = "Immunotherapy (PD1)", yeast = "Yeast", pseudo = "Single-cell (pseudobulk)")
 tool_lab <- c(deseq = "DESeq2", edger = "edgeR (paper)", edger_ql = "edgeR QL + TMM",
+              edger_ql_robust = "edgeR QL + TMM, robust",
               limma = "limma-voom")
 decorate <- function(d) {
   d$family <- ifelse(grepl("^aldex", d$tool), sub("\\..*", "", d$tool), d$tool)

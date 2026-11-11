@@ -6,7 +6,7 @@
 source(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE))), "common.R"))
 a <- parse_args()
 fdr <- num(a$fdr)
-padj_col <- function(tool) switch(tool_family(tool), deseq = 6, edger = 5, edger_ql = 5,
+padj_col <- function(tool) switch(tool_family(tool), deseq = 6, edger = 5, edger_ql = 5, edger_ql_robust = 5,
                                   limma = 5, aldex2 = 9, aldex3 = 5)
 out <- list()
 for (d in strsplit(a$runs, ",")[[1]]) {

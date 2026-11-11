@@ -225,14 +225,14 @@ run_tool <- function(tool, counts, grp, pair = NULL, model = "unpaired",
     return(as.data.frame(results(dds)@listData))
   }
 
-  if (fam %in% c("edger", "edger_ql")) {
+  if (fam %in% c("edger", "edger_ql", "edger_ql_robust")) {
     group <- factor(grp)
     design <- if (paired) model.matrix(~ pair + group) else model.matrix(~ group)
-    if (fam == "edger") {  # edg.fun.R: raw matrix, no TMM (edgeR >= 4 => legacy = FALSE)
-      fit <- glmQLFit(counts, design)
-    } else {               # edgeR v4 QL with TMM
+    if (fam == "edger") {  # edg.fun.R: raw matrix, offset = log(library size), no TMM
+      fit <- glmQLFit(counts, design)  # (edgeR >= 4 => legacy = FALSE)
+    } else {               # edgeR v4 QL with TMM (+ robust prior estimation)
       y <- normLibSizes(DGEList(counts = counts))
-      fit <- glmQLFit(y, design, legacy = FALSE)
+      fit <- glmQLFit(y, design, legacy = FALSE, robust = fam == "edger_ql_robust")
     }
     qlf <- glmQLFTest(fit, coef = ncol(design))
     tt <- topTags(qlf, n = nrow(counts), adjust.method = "BH", sort.by = "none", p.value = 1)
@@ -288,7 +288,7 @@ run_tool <- function(tool, counts, grp, pair = NULL, model = "unpaired",
 
 ## get_confusion() 'prog' argument for each tool
 confusion_prog <- function(tool) {
-  switch(tool_family(tool), deseq = "deseq", edger = "edger", edger_ql = "edger",
+  switch(tool_family(tool), deseq = "deseq", edger = "edger", edger_ql = "edger", edger_ql_robust = "edger",
          limma = "limma", aldex2 = "aldex2", aldex3 = "aldex3")
 }
 ## name used in the paper's confusion-matrix files (aldex3_2 -> aldex3.2)
