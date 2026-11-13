@@ -1,0 +1,145 @@
+---
+title: "Impact of permutation scheme on false positive rates"
+subtitle: "Working title"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    fig-width: 11
+    fig-height: 8
+bibliography: references.bib
+crossref:
+  custom:
+    - kind: float
+      key: suppfig
+      reference-prefix: "Supplementary Fig. S"
+      caption-prefix: "Supplementary Fig. S"
+      space-before-numbering: false
+      latex-env: suppfig
+params:
+  results: "../results"
+  schemes: ["published", "pairsplit", "one_group_1", "one_group_2"]
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!--
+Build (from the repository root), after the pipeline has produced rebuttal/results/:
+
+  apptainer exec rebuttal/container/quarto.sif \
+    quarto render rebuttal/manuscript/manuscript.qmd -P results:$PWD/rebuttal/results
+
+or via the workflow: snakemake -s rebuttal/Snakefile manuscript
+-->
+
+```{r}
+#| label: setup
+library(ggplot2)
+library(patchwork)
+source("../R/plots.R")
+res_dir <- params$results
+schemes <- unlist(params$schemes)
+iter <- read_tsvs(file.path(res_dir, schemes, "per_iteration.tsv"))
+null_counts <- read_tsvs(file.path(res_dir, "null_counts.tsv"))
+pca_dir <- file.path(res_dir, "figures", "pca")
+datasets <- c("brca", "kirc", "lihc", "luad", "prad", "thca", "immuno", "yeast", "pseudo")
+pca <- lapply(setNames(datasets, datasets), function(d) read_tsvs(file.path(pca_dir, sprintf("pca_%s.tsv", d))))
+scree <- lapply(setNames(datasets, datasets), function(d) read_tsvs(file.path(pca_dir, sprintf("scree_%s.tsv", d))))
+fig2_datasets <- c("immuno", "kirc")
+other_datasets <- setdiff(datasets, fig2_datasets)
+```
+
+# Abstract
+
+# Introduction
+
+# Results
+
+@suppfig-null
+
+```{r}
+#| label: fig-fdr
+#| fig-cap: "FDR per iteration."
+#| fig-width: 12
+#| fig-height: 9
+per_iteration_plot(iter, "FDR")
+```
+
+@suppfig-tpr
+
+```{r}
+#| label: fig-pca
+#| fig-cap: "PCA and scree plots."
+#| fig-width: 12
+#| fig-height: 9
+(pca_plot(pca$immuno) | pca_plot(pca$kirc)) /
+  (scree_plot(scree$immuno, "variance") | scree_plot(scree$kirc, "variance")) +
+  plot_annotation(tag_levels = "a")
+```
+
+@suppfig-pca
+
+@suppfig-scree
+
+# Methods
+
+# Discussion
+
+# References
+
+::: {#refs}
+:::
+
+# Supplementary figures
+
+::: {#suppfig-null}
+
+```{r}
+#| fig-width: 13
+#| fig-height: 9
+null_counts_plot(null_counts, schemes = schemes)
+```
+
+Genes called DE with no injected signal.
+
+:::
+
+::: {#suppfig-tpr}
+
+```{r}
+#| fig-width: 12
+#| fig-height: 9
+per_iteration_plot(iter, "TPR")
+```
+
+TPR per iteration.
+
+:::
+
+::: {#suppfig-pca}
+
+```{r}
+#| fig-width: 14
+#| fig-height: 13
+wrap_plots(lapply(pca[other_datasets], pca_plot), ncol = 3) +
+  plot_annotation(tag_levels = "a")
+```
+
+PCA of the remaining datasets.
+
+:::
+
+::: {#suppfig-scree}
+
+```{r}
+#| fig-width: 15
+#| fig-height: 11
+wrap_plots(lapply(scree[other_datasets], scree_plot, metric = "variance"), ncol = 3, guides = "collect") +
+  plot_annotation(tag_levels = "a")
+```
+
+Scree plots (absolute variance) of the remaining datasets.
+
+:::

@@ -3,7 +3,9 @@
 #   ".u" run : original data, original labels
 # One row per scheme x dataset x tool x iteration.
 # Rscript rebuttal/R/null_counts.R fdr=0.05 out=... runs=<scheme>/runs/<dataset>/<tool>,...
-source(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE))), "common.R"))
+here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)))
+source(file.path(here, "common.R"))
+source(file.path(here, "plots.R"))
 a <- parse_args()
 fdr <- num(a$fdr)
 padj_col <- function(tool) switch(tool_family(tool), deseq = 6, edger = 5, edger_ql = 5, edger_ql_robust = 5,
@@ -32,17 +34,5 @@ res <- do.call(rbind, out)
 dir.create(dirname(a$out), recursive = TRUE, showWarnings = FALSE)
 write.table(res, a$out, sep = "\t", quote = FALSE, row.names = FALSE)
 
-if (!is.null(a$plot)) {
-  suppressPackageStartupMessages(library(ggplot2))
-  keep <- !grepl("^aldex", res$tool) | res$tool %in% c("aldex3.0", "aldex3.5")
-  p <- res[keep, ]
-  g <- ggplot(p, aes(tool, n_de + 1, colour = scheme, shape = type)) +
-    geom_point(position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.75),
-               size = 1, alpha = 0.7) +
-    scale_shape_manual(values = c(`permuted (.r)` = 16, `original labels (.u)` = 4)) +
-    scale_y_log10() + facet_wrap(~ dataset, scales = "free_y") + theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    labs(x = NULL, y = "genes with BH-adjusted P < 0.05 (+1, log scale)", shape = NULL,
-         title = "No injected signal: every call under permuted labels is a false positive")
-  ggsave(a$plot, g, width = 13, height = 9, dpi = 150)
-}
+if (!is.null(a$plot))
+  ggsave(a$plot, null_counts_plot(res), width = 13, height = 9, dpi = 150)

@@ -96,6 +96,30 @@ Before the full run, check the ALDEx3 cost on your cluster with
 `results/benchmarks/` files record wall time and max RSS per job, and
 `resources:` in the config should be adjusted to match.
 
+## Manuscript
+
+`manuscript/manuscript.qmd` is a Quarto scaffold (headings and figures only)
+drawn from the pipeline's `.tsv` outputs with the same plotting code
+(`R/plots.R`), assembled with patchwork. Build its container once:
+
+```bash
+apptainer build rebuttal/container/quarto.sif rebuttal/container/quarto.def
+```
+
+Then render it, from the repository root, after the pipeline has run:
+
+```bash
+uv run --project rebuttal snakemake -s rebuttal/Snakefile manuscript --sdm apptainer --cores 1
+```
+
+or directly:
+
+```bash
+apptainer exec rebuttal/container/quarto.sif quarto render rebuttal/manuscript/manuscript.qmd -P results:$PWD/rebuttal/results
+```
+
+The output is `rebuttal/manuscript/manuscript.html`.
+
 ## Outputs (`results/`)
 
 - `data/{published,corrected}/<dataset>.rds` — filtered counts, labels, pairs

@@ -4,6 +4,8 @@
 # Apptainer image (built from rebuttal/container/usri-r.def). Set to "" to
 # use whatever `Rscript` is on PATH instead (e.g. for quick local tests).
 container: "rebuttal/container/usri-r.sif"
+# Container for the manuscript rule (rebuttal/container/quarto.def)
+quarto_container: "rebuttal/container/quarto.sif"
 rscript: "Rscript"
 
 outdir: "rebuttal/results"

@@ -12,7 +12,9 @@
 # Rscript rebuttal/R/pca_scree.R prep=... outdir=... n_perm=10 \
 #   permutations=thin2group,pairsplit prop_null=0.95 mean=0 sd=2 npc=30
 suppressPackageStartupMessages({ library(DESeq2); library(ggplot2) })
-source(file.path(dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE))), "common.R"))
+here <- dirname(sub("--file=", "", grep("--file=", commandArgs(), value = TRUE)))
+source(file.path(here, "common.R"))
+source(file.path(here, "plots.R"))
 a <- parse_args()
 prep <- readRDS(a$prep)
 ds <- prep$dataset
@@ -29,22 +31,12 @@ vs <- assay(vst(DESeqDataSetFromMatrix(round(prep$counts),
 top <- head(order(matrixStats::rowVars(vs), decreasing = TRUE), 500)
 pc <- prcomp(t(vs[top, ]), center = TRUE)
 ve <- pc$sdev^2 / sum(pc$sdev^2)
-df <- data.frame(PC1 = pc$x[, 1], PC2 = pc$x[, 2], condition = prep$conditions,
-                 pair = prep$pair)
-paired <- df[complete_pairs(df$pair), ]
-paired <- paired[order(paired$pair), ]
-segs <- do.call(rbind, lapply(split(paired, paired$pair), function(p)
-  data.frame(x = p$PC1[1], y = p$PC2[1], xend = p$PC1[2], yend = p$PC2[2])))
-g <- ggplot(df, aes(PC1, PC2)) +
-  { if (!is.null(segs)) geom_segment(data = segs, aes(x = x, y = y, xend = xend, yend = yend),
-                                     colour = "grey60", linewidth = 0.3) } +
-  geom_point(aes(colour = condition, shape = condition), size = 1.8) +
-  labs(x = sprintf("PC1: %.0f%% variance", 100 * ve[1]),
-       y = sprintf("PC2: %.0f%% variance", 100 * ve[2]),
-       title = sprintf("%s: vst, top 500 genes; lines join paired samples (%d pairs)",
-                       ds, if (is.null(segs)) 0 else nrow(segs))) +
-  theme_bw()
-ggsave(file.path(a$outdir, sprintf("pca_%s.png", ds)), g, width = 7.5, height = 6, dpi = 150)
+scores <- data.frame(dataset = ds, sample = colnames(vs), PC1 = pc$x[, 1], PC2 = pc$x[, 2],
+                     condition = prep$conditions, pair = prep$pair, ve1 = ve[1], ve2 = ve[2])
+write.table(scores, file.path(a$outdir, sprintf("pca_%s.tsv", ds)), sep = "\t",
+            quote = FALSE, row.names = FALSE)
+ggsave(file.path(a$outdir, sprintf("pca_%s.png", ds)), pca_plot(scores),
+       width = 7.5, height = 6, dpi = 150)
 
 ## ---- Scree ----------------------------------------------------------------
 scree <- function(cols, set, group, perm = NA, iter = NA) {
@@ -71,32 +63,12 @@ res <- do.call(rbind, out)
 write.table(res, file.path(a$outdir, sprintf("scree_%s.tsv", ds)), sep = "\t",
             quote = FALSE, row.names = FALSE)
 
-res$curve <- paste(res$set, res$group, res$iter)
-res$set <- factor(res$set, levels = c("all samples", "original group",
-                                      paste("permuted:", perms)))
 nshow <- as.integer(if (is.null(a$nshow)) 10 else a$nshow)
-res$curve_type <- ifelse(res$set == "original group", paste("original:", res$group),
-                         as.character(res$set))
-long <- rbind(data.frame(res, metric = "variance", value = res$variance),
-              data.frame(res, metric = "proportion of total variance", value = res$proportion))
-long <- long[long$PC <= nshow, ]
-orig <- long$set %in% c("all samples", "original group")
-lv <- c("all samples", paste("original:", unique(prep$conditions)), paste("permuted:", perms))
-long$curve_type <- factor(long$curve_type, levels = lv)
-pal <- setNames(c("black", "#D55E00", "#0072B2", "#E69F00", "#56B4E9", "#009E73")[seq_along(lv)], lv)
-pal[paste("permuted:", perms)] <- c("grey55", "#CC79A7", "#009E73")[seq_along(perms)]
-g <- ggplot(long, aes(PC, value, group = curve, colour = curve_type)) +
-  geom_line(data = long[!orig, ], alpha = 0.4, linewidth = 0.4) +
-  geom_line(data = long[orig, ], linewidth = 1) +
-  geom_point(data = long[orig, ], size = 1.8) +
-  scale_colour_manual(values = pal, drop = FALSE) +
-  scale_x_continuous(breaks = seq_len(nshow)) +
-  expand_limits(y = 0) +
-  facet_wrap(~ metric, scales = "free_y") + theme_bw() +
-  labs(x = "principal component", y = NULL, colour = NULL,
-       title = sprintf("%s: scree (vst, all %d genes), first %d PCs", ds, nrow(vs), nshow),
-       subtitle = sprintf("thin lines: the two permuted groups of iterations 1-%d", n_perm))
-ggsave(file.path(a$outdir, sprintf("scree_%s.png", ds)), g, width = 11, height = 5, dpi = 150)
+ggsave(file.path(a$outdir, sprintf("scree_%s.png", ds)),
+       scree_plot(res, "both", nshow) +
+         labs(subtitle = sprintf("vst, all %d genes; thin lines: the two permuted groups of iterations 1-%d",
+                                 nrow(vs), n_perm)),
+       width = 11, height = 5, dpi = 150)
 
 tv <- unique(res[, c("set", "group", "iter", "n", "total_variance")])
 print(aggregate(total_variance ~ set + group, tv, mean))

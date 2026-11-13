@@ -236,6 +236,7 @@ rule pca_scree:
         pca=f"{OUT}/figures/pca/pca_{{dataset}}.png",
         scree=f"{OUT}/figures/pca/scree_{{dataset}}.png",
         tsv=f"{OUT}/figures/pca/scree_{{dataset}}.tsv",
+        scores=f"{OUT}/figures/pca/pca_{{dataset}}.tsv",
     log: f"{OUT}/logs/pca/{{dataset}}.log"
     resources: mem_mb=8000, runtime=60
     params: perms=",".join(config["pca_permutations"])
@@ -244,3 +245,23 @@ rule pca_scree:
         " n_perm={config[pca_n_perm]} permutations={params.perms}"
         " prop_null={config[prop_null]} mean={config[signal_mean]} sd={config[signal_sd]}"
         " > {log} 2>&1"
+
+
+# Manuscript (not part of `all`): snakemake -s rebuttal/Snakefile manuscript
+# Runs in its own container (rebuttal/container/quarto.def).
+rule manuscript:
+    input:
+        qmd="rebuttal/manuscript/manuscript.qmd",
+        plots=f"{RDIR}/plots.R",
+        iter=expand(f"{OUT}/{{scheme}}/per_iteration.tsv", scheme=config["run_schemes"]),
+        null=f"{OUT}/null_counts.tsv",
+        pca=expand(f"{OUT}/figures/pca/pca_{{dataset}}.tsv", dataset=list(config["datasets"])),
+        scree=expand(f"{OUT}/figures/pca/scree_{{dataset}}.tsv", dataset=list(config["datasets"])),
+    output: "rebuttal/manuscript/manuscript.html"
+    log: f"{OUT}/logs/manuscript.log"
+    container: config.get("quarto_container") or None
+    resources: mem_mb=8000, runtime=30
+    params:
+        schemes=lambda wc: "[" + ",".join(f'"{s}"' for s in config["run_schemes"]) + "]"
+    shell:
+        "quarto render {input.qmd} -P results:$PWD/{OUT} -P 'schemes:{params.schemes}' > {log} 2>&1"

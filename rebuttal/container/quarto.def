@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: rocker/verse:4.5.1
+
+# Renders rebuttal/manuscript/manuscript.qmd. rocker/verse provides R,
+# the tidyverse, pandoc, Quarto and TeX; patchwork is added for figure panels.
+#
+# Build:  apptainer build rebuttal/container/quarto.sif rebuttal/container/quarto.def
+
+%post
+    set -e
+    Rscript -e 'install.packages(c("patchwork", "knitr", "rmarkdown"))'
+
+%test
+    quarto --version
+    Rscript -e 'for (p in c("ggplot2", "patchwork", "knitr", "rmarkdown")) cat(p, as.character(packageVersion(p)), "\n")'
+
+%labels
+    Description Quarto + R environment for the usri rebuttal manuscript
