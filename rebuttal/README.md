@@ -28,6 +28,7 @@ ignoring pairs, and all tools are fitted with unpaired models.
 | `thin2group_corrected` | corrected | `thin_2group` (paper) | `~ group` |
 | `pairsplit` | corrected | each pair split across groups (coin flip per pair) | `~ group` |
 | `pairsplit_balanced` | corrected | pairs split *and* exactly half flipped, so each new group holds n/2 of each original condition | `~ group` |
+| `one_group_1` / `one_group_2` | corrected, **one original condition only** (1 = normal / On / SNF2 / CTRL; 2 = tumour / Pre / WT / STIM), genes re-filtered on those samples | random 50/50 split (no pairs remain) | `~ group` |
 | `paired_model` | corrected | pairsplit | `~ pair + group`, complete pairs only |
 
 `run_schemes` selects which run. In the figures, `paper` means the
@@ -37,7 +38,12 @@ numbers stored in the repository (`data/all_TPR_FDR.Rda`), not recomputed;
 Note that `edger_ql` (TMM) is a separate tool run in every scheme, not a
 correction applied by any scheme.
 
-`run_schemes` selects which run (default: `published`, `pairsplit`).
+The one-group schemes avoid null groups that are each a mixture of two very
+different conditions (e.g. tumour + normal), at the cost of half the samples.
+They have no `.u` run.
+
+`run_schemes` selects which run (default: `published`, `pairsplit`,
+`one_group_1`, `one_group_2`).
 
 For a given iteration the same genes get the same simulated effects in every
 scheme (the signal is drawn in the same RNG order as `thin_2group`); only the

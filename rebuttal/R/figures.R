@@ -59,6 +59,11 @@ for (s in unique(tidy$scheme)) {
 
 if (length(unique(tidy$scheme)) > 1) {
   # scale-naive tools + ALDEx gamma = 0 and 0.5, schemes as line types
+  # line type per scheme: fixed for the main ones, the rest from a pool
+  fixed <- c(paper = "dotted", published = "solid", pairsplit = "dashed")
+  others <- setdiff(unique(tidy$scheme), names(fixed))
+  pool <- c("dotdash", "longdash", "twodash", "13", "F1", "4C88C488")
+  lty <- c(fixed, setNames(rep_len(pool, length(others)), others))
   keep <- tidy$gamma %in% c("naive", "0", "0.5")
   d <- tidy[keep, ]
   d$label <- ifelse(d$gamma == "naive", d$family, paste0(d$family, " (g=", d$gamma, ")"))
@@ -66,8 +71,7 @@ if (length(unique(tidy$scheme)) > 1) {
     met <- names(which(c(cFDR0 = "FDR", cTPR0 = "TPR") == m))
     p <- ggplot(d[d$metric == met, ], aes(coeff, value, colour = label, linetype = scheme)) +
       geom_line() + facet_wrap(~ dataset_lab) + theme_bw() +
-      scale_linetype_manual(values = c(paper = "dotted", published = "solid",
-        pairsplit = "dashed", pairsplit_balanced = "dotdash", paired_model = "longdash")) +
+      scale_linetype_manual(values = lty) +
       labs(x = "Threshold: model difference between groups", y = m, colour = "Tool")
     ggsave(file.path(a$outdir, sprintf("compare_%s.png", tolower(m))), p,
            width = 12, height = 8, dpi = 150)

@@ -38,10 +38,18 @@ filter_edger <- function(counts, conditions) {
   y$counts
 }
 
+## subset_group: NULL for all samples, or 1 / 2 to keep only the samples of the
+## first / second original condition (sorted alphabetically) for the
+## "one group" schemes. Subsetting happens before gene filtering, so genes
+## are filtered on the samples that are kept.
 load_dataset <- function(dataset, variant = c("published", "corrected"),
-                         datadir = "data") {
+                         datadir = "data", subset_group = NULL) {
   variant <- match.arg(variant)
   f <- function(x) file.path(datadir, x)
+  keep_group <- function(cond) {
+    if (is.null(subset_group)) return(seq_along(cond))
+    which(cond == sort(unique(cond))[subset_group])
+  }
   tcga <- c(brca = "BRCA", kirc = "KIRC", lihc = "LIHC", luad = "LUAD",
             prad = "PRAD", thca = "THCA")
 
@@ -55,6 +63,8 @@ load_dataset <- function(dataset, variant = c("published", "corrected"),
     pair <- substr(colnames(raw), 1, 12)
     stype <- substr(colnames(raw), 14, 15)
     stopifnot(all((stype == "01") == (conditions == "tumor")))
+    k <- keep_group(conditions)
+    raw <- raw[, k]; conditions <- conditions[k]; pair <- pair[k]
     counts <- filter_edger(raw, conditions)
 
   } else if (dataset == "immuno") {
@@ -83,6 +93,8 @@ load_dataset <- function(dataset, variant = c("published", "corrected"),
       stopifnot(length(drop) == 1)
       raw <- raw[, -drop]; conditions <- conditions[-drop]; pair <- pair[-drop]
     }
+    k <- keep_group(conditions)
+    raw <- raw[, k]; conditions <- conditions[k]; pair <- pair[k]
     counts <- filter_edger(raw, conditions)
 
   } else if (dataset == "yeast") {
@@ -93,17 +105,22 @@ load_dataset <- function(dataset, variant = c("published", "corrected"),
     conditions <- c(rep("S", 44), rep("W", 42))
     stopifnot(all(startsWith(colnames(raw), "SNF2") == (conditions == "S")))
     pair <- colnames(raw)                # unpaired: every sample its own unit
+    k <- keep_group(conditions)
+    raw <- raw[, k]; conditions <- conditions[k]; pair <- pair[k]
     counts <- filter_edger(raw, conditions)
 
   } else if (dataset == "pseudo") {
     raw <- read.table(f("pseudobulk_counts.txt"), header = TRUE, sep = "\t", row.names = 1)
+    conditions <- c(rep("CRTL", 103), rep("STIM", 103))   # sic, as in paper
+    stopifnot(all(startsWith(colnames(raw), "CTRL") == (conditions == "CRTL")))
+    k <- keep_group(conditions)
+    raw <- raw[, k]; conditions <- conditions[k]
     raw <- raw[-which(rowSums(raw) == 0), ]
     raw <- as.matrix(raw)
     set.seed(123)
     counts <- select_counts(mat = raw, nsamp = ncol(raw), ngene = 8500,
                             gselect = "max", filter_first = FALSE)
-    conditions <- c(rep("CRTL", 103), rep("STIM", 103))   # sic, as in paper
-    stopifnot(all(startsWith(colnames(counts), "CTRL") == (conditions == "CRTL")))
+    stopifnot(identical(colnames(counts), colnames(raw)))
     # 8 donors x 13 cell types x CTRL/STIM: pair = donor x cell type
     pair <- sub("^(CTRL|STIM)_", "", colnames(counts))
 

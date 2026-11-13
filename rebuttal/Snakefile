@@ -27,7 +27,7 @@ wildcard_constraints:
     scheme=r"[A-Za-z0-9_]+",
     dataset=r"[a-z]+",
     tool=r"[a-z0-9_]+",
-    variant=r"published|corrected",
+    variant=r"(published|corrected)(_g[12])?",
     chunk=r"\d{3}-\d{3}",
 
 
@@ -86,7 +86,14 @@ def runtime_min(wc, attempt, calls):
 
 
 def prep_path(scheme, dataset):
-    return f"{OUT}/data/{scheme_cfg(scheme)['data']}/{dataset}.rds"
+    cfg = scheme_cfg(scheme)
+    variant = cfg["data"] + (f"_g{cfg['subset_group']}" if cfg.get("subset_group") else "")
+    return f"{OUT}/data/{variant}/{dataset}.rds"
+
+
+def has_unpermuted(scheme):
+    # a one-group scheme has a single condition, so there is no .u comparison
+    return not scheme_cfg(scheme).get("subset_group")
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +102,7 @@ rule all:
     input:
         expand(f"{OUT}/{{scheme}}/tpr_fdr.tsv", scheme=config["run_schemes"]),
         [f"{OUT}/{s}/runs/{d}/{t}/unpermuted.rds"
-         for s in config["run_schemes"] for d, t in combos(s)],
+         for s in config["run_schemes"] if has_unpermuted(s) for d, t in combos(s)],
         f"{OUT}/figures/fdr_per_iteration.png",
         f"{OUT}/null_counts.tsv",
         expand(f"{OUT}/figures/pca/scree_{{dataset}}.png", dataset=list(config["datasets"])),
@@ -208,7 +215,8 @@ rule null_counts:
     # original labels (.u runs)
     input:
         [f"{OUT}/{s}/runs/{d}/{t}/{f}" for s in config["run_schemes"] for d, t in combos(s)
-         for f in [f"chunk_{c}.rds" for c in CHUNK_IDS] + ["unpermuted.rds"]]
+         for f in [f"chunk_{c}.rds" for c in CHUNK_IDS]
+                  + (["unpermuted.rds"] if has_unpermuted(s) else [])]
     output:
         tsv=f"{OUT}/null_counts.tsv",
         png=f"{OUT}/figures/null_de_counts.png",

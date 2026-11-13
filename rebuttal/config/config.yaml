@@ -108,6 +108,21 @@ schemes:
     data: corrected
     permutation: pairsplit_balanced
     model: unpaired
+  # One-group nulls: keep only the samples of one original condition (sorted
+  # alphabetically: 1 = normal / On / S (SNF2) / CRTL; 2 = tumor / Pre / W / STIM),
+  # re-filter genes on them, then split them 50/50 at random. Each patient
+  # appears once, so there are no pairs and pairsplit is a plain balanced
+  # split. No ".u" run (there is only one condition). Half the samples.
+  one_group_1:
+    data: corrected
+    subset_group: 1
+    permutation: pairsplit
+    model: unpaired
+  one_group_2:
+    data: corrected
+    subset_group: 2
+    permutation: pairsplit
+    model: unpaired
   paired_model:
     data: corrected
     permutation: pairsplit
@@ -118,7 +133,7 @@ schemes:
     datasets: [brca, kirc, lihc, luad, prad, thca, immuno, pseudo]  # yeast has no pairs
     tools: [deseq, edger, edger_ql, edger_ql_robust, limma, aldex3]
 
-run_schemes: [published, pairsplit]
+run_schemes: [published, pairsplit, one_group_1, one_group_2]
 
 # PCA / scree plots (corrected data, original counts). Permuted groups are
 # taken from the pipeline's iterations 1..pca_n_perm under each permutation.
