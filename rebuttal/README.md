@@ -19,6 +19,19 @@ ignoring pairs, and all tools are fitted with unpaired models.
 | PD1 immunotherapy (corrected) | 108 | 43 | 22 |
 | single-cell pseudobulk (8 donors × 13 cell types) | 206 | 102 | 2 |
 | yeast | 86 | 0 | 86 |
+| GTEx blood vs skeletal muscle | 1376 | 571 (donors) | 234 |
+| GTEx adipose subcutaneous vs visceral | 1050 | 353 | 344 |
+| GTEx heart atrial appendage vs left ventricle | 758 | 262 | 234 |
+| GTEx prostate vs brain cortex | 426 | 47 | 332 |
+| GTEx brain amygdala vs spinal cord | 255 | 58 | 139 |
+| GTEx EBV lymphocytes vs minor salivary gland | 291 | 34 | 223 |
+
+The GTEx pairs are those of Li et al. (2022), taken from their Zenodo record
+(8320659, "permuted datasets_GTEx"). The `gtex_data` rule downloads them into
+`data/gtex/` (not committed; needs access to zenodo.org). For GTEx the pair is
+the donor. Unlike Li et al., we filter with `filterByExpr` before every tool,
+use edgeR v4 QL, FDR 0.05, and our own permutations (they kept only label sets
+whose class ratio fell between the 1st and 3rd quartiles).
 
 ## Schemes (`config/config.yaml`)
 
@@ -56,13 +69,14 @@ the paper's confusion matrices, 20,478 genes, match this), and Pt109's two
 "On" libraries. `corrected` reads the file properly and drops the second
 Pt109 library.
 
-**Tools.** `deseq`, `edger` (paper: `glmQLFit` on the raw matrix — this is
-already edgeR v4 QL because `legacy = FALSE` is the default in edgeR ≥ 4, but
-without TMM), `edger_ql` (new: `DGEList` → `normLibSizes` → `glmQLFit(legacy =
-FALSE)` → `glmQLFTest`), `edger_ql_robust` (new: the same with
-`robust = TRUE`), `limma` (voom), `aldex3` (γ = 0.001, 0.1 … 0.5). ALDEx2
-is off by default (`enable_aldex2: true` to add it; ~23 min and ~45 GB per
-BRCA call).
+**Tools.** By default one version of each: `deseq` (DESeq2 defaults),
+`edger_ql` (`DGEList` → `normLibSizes` (TMM) → `glmQLFit(legacy = FALSE)` →
+`glmQLFTest`) and `limma` (`DGEList` → TMM → `voom` → `lmFit`/`eBayes`).
+limma now uses TMM; the paper's `lim.fun.R` ran voom on the raw matrix
+(library-size scaling only), so the `published` scheme reproduces the paper
+for DESeq2 but not for limma. Also available but off by default: `edger` (the
+paper's: `glmQLFit` on the raw matrix, library-size offset only),
+`edger_ql_robust`, `aldex3` (γ = 0.001 … 0.5) and ALDEx2 (`enable_aldex2`).
 
 As in the paper, every iteration *i* runs `set.seed(20 + i)` → thinning → tool
 on the original data with permuted labels (`.r`) → tool on the thinned data

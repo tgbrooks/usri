@@ -38,6 +38,14 @@ filter_edger <- function(counts, conditions) {
   y$counts
 }
 
+## GTEx dataset name -> file stem in data/gtex/
+gtex_pairs <- c(gtex_blood_muscle = "WholeBlood.MuscleSkeletal",
+                gtex_adipose = "AdiposeSubcutaneous.AdiposeVisceralOmentum",
+                gtex_heart = "HeartAtrialAppendage.HeartLeftVentricle",
+                gtex_prostate_brain = "Prostate.BrainCortex",
+                gtex_amygdala_spinal = "BrainAmygdala.BrainSpinalcordCervicalc",
+                gtex_ebv_gland = "CellsEVBtransformedLymphocytes.MinorSalivaryGland")
+
 ## subset_group: NULL for all samples, or 1 / 2 to keep only the samples of the
 ## first / second original condition (sorted alphabetically) for the
 ## "one group" schemes. Subsetting happens before gene filtering, so genes
@@ -123,6 +131,20 @@ load_dataset <- function(dataset, variant = c("published", "corrected"),
     stopifnot(identical(colnames(counts), colnames(raw)))
     # 8 donors x 13 cell types x CTRL/STIM: pair = donor x cell type
     pair <- sub("^(CTRL|STIM)_", "", colnames(counts))
+
+  } else if (dataset %in% names(gtex_pairs)) {
+    # GTEx tissue pairs from Li et al. (2022), Zenodo record 8320659
+    # ("permuted datasets_GTEx"); downloaded by the gtex_data rule
+    stem <- file.path(datadir, "gtex", gtex_pairs[[dataset]])
+    raw <- data.table::fread(paste0(stem, ".gene_readCount.tsv"), sep = "\t", header = TRUE,
+                             data.table = FALSE, check.names = FALSE)
+    rownames(raw) <- raw[[1]]; raw <- as.matrix(raw[, -1])
+    conditions <- as.vector(unlist(read.table(paste0(stem, ".conditions.tsv"), sep = "\t")))
+    stopifnot(length(conditions) == ncol(raw))
+    pair <- sub("^(GTEX-[^-]+)-.*$", "\\1", colnames(raw))   # donor ID
+    k <- keep_group(conditions)
+    raw <- raw[, k]; conditions <- conditions[k]; pair <- pair[k]
+    counts <- filter_edger(round(raw), conditions)
 
   } else stop("unknown dataset: ", dataset)
 
@@ -256,9 +278,9 @@ run_tool <- function(tool, counts, grp, pair = NULL, model = "unpaired",
     return(as.data.frame(tt[[1]]))
   }
 
-  if (fam == "limma") {   # lim.fun.R
+  if (fam == "limma") {   # voom + limma with TMM (the paper's lim.fun.R used no TMM)
     design <- if (paired) model.matrix(~ pair + grp) else model.matrix(~ grp)
-    v <- voom(counts, design)
+    v <- voom(normLibSizes(DGEList(counts = counts)), design)
     fit <- eBayes(lmFit(v, design))
     return(topTable(fit, coef = ncol(design), number = nrow(counts), sort.by = "none"))
   }

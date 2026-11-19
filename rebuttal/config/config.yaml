@@ -37,10 +37,23 @@ datasets:
   immuno: {gs_M: 2.23}
   yeast:  {gs_M: 0.49}
   pseudo: {gs_M: 1.75}
+  # GTEx tissue pairs used by Li et al. (2022); donors are the pairs
+  gtex_blood_muscle:    {gs_M: 26.2}
+  gtex_adipose:         {gs_M: 22.6}
+  gtex_heart:           {gs_M: 15.0}
+  gtex_prostate_brain:  {gs_M: 9.8}
+  gtex_amygdala_spinal: {gs_M: 5.4}
+  gtex_ebv_gland:       {gs_M: 6.4}
+
+# GTEx counts and conditions (Li et al. 2022, Zenodo 8320659), fetched by the
+# gtex_data rule into data/gtex/ (not committed: the largest file is >100 MB)
+gtex_url: "https://zenodo.org/api/records/8320659/files/permuted%20datasets_GTEx.zip/content"
 
 # ---------------------------------------------------------------------------
 # Tools. ALDEx2 is very expensive (~0.3 ms and ~9 KB per gene x sample per
 # call; ~23 min / ~45 GB per BRCA call) and is off by default.
+# Default: one version of each tool (deseq, edger_ql, limma). The others are
+# kept for reference and can be added to `tools`.
 #   deseq    : DESeq2, as in code/des.fun.R
 #   edger    : edgeR as in code/edg.fun.R: glmQLFit()/glmQLFTest() on the raw
 #              count matrix (edgeR >= 4 so this is already the v4 QL method,
@@ -48,11 +61,13 @@ datasets:
 #   edger_ql : edgeR v4 QL "by the book": DGEList -> normLibSizes (TMM) ->
 #              glmQLFit(legacy = FALSE) -> glmQLFTest   (NEW, not in paper)
 #   edger_ql_robust : as edger_ql with glmQLFit(robust = TRUE)   (NEW)
-#   limma    : voom + limma, as in code/lim.fun.R
+#   limma    : voom + limma with TMM (DGEList -> normLibSizes -> voom). NB the
+#              paper's lim.fun.R used voom on the raw matrix (library-size
+#              scaling only), so limma no longer reproduces the paper exactly
 #   aldex3   : ALDEx3 clr.sm scale model, as in code/ald3.fun.R
 #   aldex2   : ALDEx2, as in code/ald2.fun.R
 # ---------------------------------------------------------------------------
-tools: [deseq, edger, edger_ql, edger_ql_robust, limma, aldex3]
+tools: [deseq, edger_ql, limma]
 enable_aldex2: false
 gammas: {"0": 0.001, "1": 0.1, "2": 0.2, "3": 0.3, "4": 0.4, "5": 0.5}
 
@@ -132,8 +147,8 @@ schemes:
     # ~ pair + group has ~50-110 pair coefficients: DESeq2 took 10-20 min and
     # edgeR >15 min per iteration in a local test, so allow much longer jobs
     runtime_factor: 25
-    datasets: [brca, kirc, lihc, luad, prad, thca, immuno, pseudo]  # yeast has no pairs
-    tools: [deseq, edger, edger_ql, edger_ql_robust, limma, aldex3]
+    datasets: [brca, kirc, lihc, luad, prad, thca, immuno, pseudo]  # yeast has no pairs; GTEx not yet
+    tools: [deseq, edger_ql, limma]
 
 run_schemes: [published, pairsplit, one_group_1, one_group_2]
 

@@ -25,7 +25,7 @@ shell.prefix("export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1;
 
 wildcard_constraints:
     scheme=r"[A-Za-z0-9_]+",
-    dataset=r"[a-z]+",
+    dataset=r"[a-z0-9_]+",
     tool=r"[a-z0-9_]+",
     variant=r"(published|corrected)(_g[12])?",
     chunk=r"\d{3}-\d{3}",
@@ -110,10 +110,41 @@ rule all:
          if "published" in config["run_schemes"] else []),
 
 
+GTEX_FILES = {
+    "gtex_blood_muscle": "WholeBlood.MuscleSkeletal",
+    "gtex_adipose": "AdiposeSubcutaneous.AdiposeVisceralOmentum",
+    "gtex_heart": "HeartAtrialAppendage.HeartLeftVentricle",
+    "gtex_prostate_brain": "Prostate.BrainCortex",
+    "gtex_amygdala_spinal": "BrainAmygdala.BrainSpinalcordCervicalc",
+    "gtex_ebv_gland": "CellsEVBtransformedLymphocytes.MinorSalivaryGland",
+}
+
+
+rule gtex_data:
+    output:
+        [f"data/gtex/{stem}.{ext}" for stem in GTEX_FILES.values()
+         for ext in ("gene_readCount.tsv", "conditions.tsv")]
+    log: f"{OUT}/logs/gtex_data.log"
+    resources: mem_mb=2000, runtime=60
+    params: url=config["gtex_url"]
+    shell:
+        """{RS} -e 'z <- tempfile(fileext = ".zip"); options(timeout = 3600);
+        download.file("{params.url}", z, mode = "wb");
+        f <- unzip(z, list = TRUE)$Name;
+        f <- f[grepl("(gene_readCount|conditions)[.]tsv$", f) & !grepl("^__MACOSX", f)];
+        unzip(z, files = f, exdir = tempdir());
+        dir.create("data/gtex", showWarnings = FALSE);
+        stopifnot(all(file.copy(file.path(tempdir(), f), file.path("data/gtex", basename(f)), overwrite = TRUE)))' > {log} 2>&1"""
+
+
 rule prep_data:
+    input:
+        lambda wc: ([f"data/gtex/{GTEX_FILES[wc.dataset]}.{ext}"
+                     for ext in ("gene_readCount.tsv", "conditions.tsv")]
+                    if wc.dataset in GTEX_FILES else [])
     output: f"{OUT}/data/{{variant}}/{{dataset}}.rds"
     log: f"{OUT}/logs/prep/{{variant}}_{{dataset}}.log"
-    resources: mem_mb=4000, runtime=20
+    resources: mem_mb=lambda wc: 12000 if wc.dataset in GTEX_FILES else 4000, runtime=20
     shell:
         "{RS} {RDIR}/prep_data.R dataset={wildcards.dataset} variant={wildcards.variant}"
         " datadir=data out={output} > {log} 2>&1"
@@ -238,7 +269,9 @@ rule pca_scree:
         tsv=f"{OUT}/figures/pca/scree_{{dataset}}.tsv",
         scores=f"{OUT}/figures/pca/pca_{{dataset}}.tsv",
     log: f"{OUT}/logs/pca/{{dataset}}.log"
-    resources: mem_mb=8000, runtime=60
+    resources:
+        mem_mb=lambda wc: 24000 if wc.dataset in GTEX_FILES else 8000,
+        runtime=lambda wc: 180 if wc.dataset in GTEX_FILES else 60
     params: perms=",".join(config["pca_permutations"])
     shell:
         "{RS} {RDIR}/pca_scree.R prep={input} outdir={OUT}/figures/pca"

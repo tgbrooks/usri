@@ -5,7 +5,10 @@ suppressPackageStartupMessages(library(ggplot2))
 
 ds_lab <- c(brca = "TCGA: BRCA", kirc = "TCGA: KIRC", lihc = "TCGA: LIHC",
             luad = "TCGA: LUAD", prad = "TCGA: PRAD", thca = "TCGA: THCA",
-            immuno = "Immunotherapy (PD1)", yeast = "Yeast", pseudo = "Single-cell (pseudobulk)")
+            immuno = "Immunotherapy (PD1)", yeast = "Yeast", pseudo = "Single-cell (pseudobulk)",
+            gtex_blood_muscle = "GTEx: blood vs muscle", gtex_adipose = "GTEx: adipose sc vs visceral",
+            gtex_heart = "GTEx: atrium vs ventricle", gtex_prostate_brain = "GTEx: prostate vs brain cortex",
+            gtex_amygdala_spinal = "GTEx: amygdala vs spinal cord", gtex_ebv_gland = "GTEx: EBV lymphocytes vs salivary gland")
 tool_lab <- c(deseq = "DESeq2", edger = "edgeR (paper)", edger_ql = "edgeR QL + TMM",
               edger_ql_robust = "edgeR QL + TMM, robust", limma = "limma-voom")
 
